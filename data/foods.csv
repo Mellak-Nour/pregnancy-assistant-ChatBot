@@ -1,0 +1,42 @@
+food_name,is_safe,trimester,notes
+raw_fish,no,all,may contain parasites or listeria harmful to fetus
+sushi,no,all,raw fish risk of listeria and parasites
+tuna,limited,all,high mercury content limit to once per week
+salmon_cooked,yes,all,excellent omega-3 source for brain development
+eggs_cooked,yes,all,good protein and choline source
+eggs_raw,no,all,risk of salmonella avoid raw or undercooked eggs
+soft_cheese,no,all,unpasteurized cheese risk of listeria
+hard_cheese,yes,all,safe good calcium source
+milk_pasteurized,yes,all,excellent calcium and protein source
+milk_unpasteurized,no,all,risk of listeria and harmful bacteria
+leafy_greens,yes,all,rich in folate essential for neural tube development
+spinach,yes,all,high folate iron and calcium
+broccoli,yes,all,rich in vitamins C and K folate
+liver,limited,first,high vitamin A excess can cause birth defects limit intake
+liver,no,first,very high retinol can cause fetal abnormalities
+deli_meats,no,all,risk of listeria reheat until steaming before eating
+hot_dogs,limited,all,reheat thoroughly to avoid listeria risk
+caffeine,limited,all,limit to 200mg per day high caffeine linked to low birth weight
+alcohol,no,all,no safe level of alcohol during pregnancy
+peanuts,yes,all,safe unless allergy no evidence it causes allergy in baby
+walnuts,yes,all,rich in omega-3 fatty acids good for brain development
+almonds,yes,all,good source of vitamin E and magnesium
+berries,yes,all,rich in antioxidants vitamin C and fiber
+oranges,yes,all,excellent vitamin C helps iron absorption
+bananas,yes,all,good potassium source helps prevent cramps
+avocado,yes,all,healthy fats folate and potassium
+sweet_potato,yes,all,rich in beta-carotene vitamin A source
+whole_grains,yes,all,fiber and B vitamins important for digestion
+lentils,yes,all,excellent plant-based protein and folate
+beans,yes,all,good iron fiber and protein source
+greek_yogurt,yes,all,high protein and calcium probiotic benefits
+oily_fish,yes,all,omega-3 DHA important for brain development limit to 2 portions per week
+iron_rich_foods,yes,all,red meat beans spinach prevent anemia
+folic_acid_foods,yes,first,leafy greens fortified cereals crucial in first trimester
+calcium_rich_foods,yes,all,dairy broccoli almonds essential for bone development
+herbal_tea,limited,all,some herbs unsafe check with doctor chamomile peppermint generally ok
+ginger,yes,all,can help with nausea safe in food amounts
+licorice,no,all,large amounts linked to preterm birth and cognitive issues
+papaya_unripe,no,all,contains latex may trigger contractions
+pineapple_large_amounts,limited,all,bromelain in large amounts may soften cervix
+water,yes,all,stay well hydrated 8-10 glasses per day

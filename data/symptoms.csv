@@ -1,0 +1,44 @@
+symptom,risk_level,recommendation
+nausea,low,common in first trimester eat small frequent meals ginger tea may help
+morning_sickness,low,normal in first trimester stay hydrated eat bland foods
+mild_fatigue,low,normal throughout pregnancy rest when needed iron levels may need checking
+mild_back_pain,low,common use proper posture gentle exercise warm compress
+round_ligament_pain,low,normal sharp brief pain in lower abdomen from stretching ligaments
+braxton_hicks,low,practice contractions in third trimester normal if not regular or painful
+heartburn,low,common in second and third trimester eat smaller meals avoid spicy food
+constipation,low,common increase fiber and water intake gentle exercise helps
+mild_swelling_feet,low,normal in third trimester elevate feet rest avoid prolonged standing
+frequent_urination,low,normal especially in first and third trimester stay hydrated
+mood_swings,low,normal hormonal changes rest mindfulness discuss concerns with midwife
+food_cravings,low,normal manage with healthy alternatives
+mild_headache,low,rest hydrate avoid known triggers consult doctor if persistent
+breast_tenderness,low,normal especially in first trimester supportive bra may help
+shortness_of_breath_mild,low,common in third trimester fetus pressing on diaphragm
+dizziness_mild,medium,may indicate low blood pressure low blood sugar eat small meals sit slowly
+severe_headache,medium,could indicate preeclampsia consult doctor promptly
+severe_headache_with_vision,high,emergency symptom of preeclampsia seek immediate medical help
+vision_changes,high,blurred vision flashing lights spots signs of preeclampsia call doctor immediately
+severe_swelling,high,sudden swelling face hands may indicate preeclampsia seek immediate care
+swelling_one_leg,high,could indicate blood clot deep vein thrombosis seek medical attention
+vaginal_bleeding,high,any bleeding requires immediate medical evaluation call doctor or emergency
+heavy_bleeding,high,emergency go to hospital immediately
+spotting_first_trimester,medium,can be normal but must be evaluated by doctor contact healthcare provider
+regular_contractions_early,high,before 37 weeks may indicate preterm labor contact doctor immediately
+decreased_fetal_movement,high,after 28 weeks fewer than 10 movements in 2 hours contact doctor
+no_fetal_movement,high,emergency contact healthcare provider immediately
+severe_abdominal_pain,high,could indicate placental abruption ectopic pregnancy seek emergency care
+persistent_vomiting,high,hyperemesis gravidarum risk of dehydration malnutrition contact doctor
+high_fever,high,fever above 38C contact doctor may indicate infection harmful to fetus
+fever,medium,temperature above 37.5C rest fluids contact doctor if persistent or high
+urinary_burning,medium,possible urinary tract infection UTI common in pregnancy contact doctor
+painful_urination,medium,could be UTI requires antibiotic treatment safe for pregnancy contact doctor
+leaking_fluid,high,may indicate water breaking premature rupture of membranes contact doctor
+watery_discharge,high,if constant could be amniotic fluid leaking seek immediate medical evaluation
+itching_severe,medium,severe itching especially palms soles may indicate cholestasis contact doctor
+jaundice,high,yellowing of skin eyes contact doctor immediately
+chest_pain,high,could indicate cardiac issue or pulmonary embolism seek emergency care
+difficulty_breathing,high,severe shortness of breath seek emergency medical care
+rapid_weight_gain,medium,sudden large weight gain may indicate preeclampsia contact doctor
+no_weight_gain,medium,inadequate weight gain consult doctor and nutritionist
+depression,medium,prenatal depression common but requires support contact healthcare provider mental health support
+anxiety_severe,medium,severe anxiety discuss with healthcare provider safe therapies available
