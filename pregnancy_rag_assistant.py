@@ -1,74 +1,3 @@
-"""
-=============================================================================
-PREGNANCY HEALTH RAG ASSISTANT
-=============================================================================
-A Retrieval-Augmented Generation (RAG) system built with:
-  - Gemini API (google-generativeai) for language generation
-  - FAISS for vector similarity search
-  - SentenceTransformers for text embeddings
-  - CSV-based medical knowledge datasets
-
-SYSTEM ARCHITECTURE:
-  User Question
-       ↓
-  Load User Context (pregnancy week, illnesses, allergies)
-       ↓
-  Danger Detection (check for emergency symptoms)
-       ↓
-  Retrieve relevant docs from FAISS vector database
-       ↓
-  Build structured prompt (persona + context + question)
-       ↓
-  Send to Gemini API
-       ↓
-  Return structured guidance response
-
-DOCUMENTATION:
-  Vector Database Choice (FAISS):
-    FAISS (Facebook AI Similarity Search) was chosen because:
-    - It is lightweight and runs entirely in-memory or locally
-    - No server setup required — ideal for single-file deployment
-    - Extremely fast cosine/L2 similarity search even on large datasets
-    - Well-supported Python bindings via faiss-cpu
-    - Perfect for small-to-medium medical knowledge bases
-
-  Retrieval Logic (Top-K Search):
-    1. The user question is embedded into a 384-dim vector using
-       SentenceTransformers (all-MiniLM-L6-v2)
-    2. FAISS performs an exact L2 nearest-neighbor search
-    3. Top-5 most semantically similar document chunks are retrieved
-    4. These chunks form the context injected into the Gemini prompt
-
-  Prompting Strategy:
-    - Role/persona prompt establishes the assistant as a safe medical guide
-    - User profile (week, trimester, allergies, illnesses) personalizes answers
-    - Retrieved documents provide grounded, factual medical context
-    - Danger detection pre-checks trigger emergency guidance before LLM call
-    - Output format is structured: Answer / Safety Advice / Recommendation
-
-  Dataset:
-    - foods.csv: 40+ food items with safety ratings, trimester applicability, notes
-    - exercise.csv: 30 exercises with trimester safety and modification notes
-    - symptoms.csv: 45 symptoms with risk levels (low/medium/high) and actions
-    - weekly_guidance.csv: Week-by-week baby development, nutrition, exercise tips
-    All rows are converted to natural language text chunks for embedding.
-=============================================================================
-
-INSTALLATION:
-  pip install google-generativeai sentence-transformers faiss-cpu numpy pandas
-
-USAGE:
-  1. Set your Gemini API key in the GEMINI_API_KEY variable below
-  2. Ensure the /data/ folder contains the four CSV files
-  3. Run: python pregnancy_rag_assistant.py
-
-=============================================================================
-"""
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 1. IMPORTS
-# ─────────────────────────────────────────────────────────────────────────────
-
 import os
 import sys
 import json
@@ -78,30 +7,22 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. CONFIGURATION
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ⚠️  IMPORTANT: Set your Gemini API key here or via environment variable
+# API key - set this or use environment variable
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCpmgqTLJ9Fzm2N5L3DowkK4jPS_FJaX_U")
 
-# Model settings
-GEMINI_MODEL = "gemini-3-flash-preview"           # Fast and cost-effective Gemini model
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"        # 384-dim sentence embeddings, runs locally
-TOP_K_RESULTS = 5                            # Number of documents to retrieve per query
+GEMINI_MODEL = "gemini-2.5-flash"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+TOP_K_RESULTS = 5
 
-# Data paths (relative to this script)
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FOODS_CSV = os.path.join(DATA_DIR, "foods.csv")
 EXERCISE_CSV = os.path.join(DATA_DIR, "exercise.csv")
 SYMPTOMS_CSV = os.path.join(DATA_DIR, "symptoms.csv")
 WEEKLY_CSV = os.path.join(DATA_DIR, "weekly_guidance.csv")
 
-# FAISS index save path (persists between runs for faster startup)
 FAISS_INDEX_PATH = os.path.join(DATA_DIR, "pregnancy_knowledge.index")
 CHUNKS_PATH = os.path.join(DATA_DIR, "knowledge_chunks.json")
 
-# Danger keywords that trigger emergency guidance
 DANGER_KEYWORDS = [
     "bleeding", "heavy bleeding", "vaginal bleeding", "spotting",
     "severe pain", "severe abdominal pain", "sharp pain",
@@ -114,15 +35,8 @@ DANGER_KEYWORDS = [
     "unconscious", "fainting", "seizure",
 ]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3. DATASET LOADING
-# ─────────────────────────────────────────────────────────────────────────────
 
 def load_datasets():
-    """
-    Load all four CSV knowledge base files into DataFrames.
-    Returns a dict of DataFrames keyed by dataset name.
-    """
     datasets = {}
 
     try:
@@ -152,20 +66,10 @@ def load_datasets():
     return datasets
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. TEXT CHUNK CREATION
-# ─────────────────────────────────────────────────────────────────────────────
-
 def create_text_chunks(datasets: dict) -> list[str]:
-    """
-    Convert structured CSV rows into descriptive natural language text chunks.
-    Each chunk represents one piece of medical knowledge for embedding.
-
-    Returns a list of text strings ready for vectorisation.
-    """
     chunks = []
 
-    # ── Foods ──────────────────────────────────────────────────────────────
+    # convert each food row into a readable sentence
     if "foods" in datasets:
         for _, row in datasets["foods"].iterrows():
             name = str(row.get("food_name", "")).replace("_", " ")
@@ -192,7 +96,7 @@ def create_text_chunks(datasets: dict) -> list[str]:
             )
             chunks.append(chunk)
 
-    # ── Exercise ───────────────────────────────────────────────────────────
+    # exercise rows
     if "exercise" in datasets:
         for _, row in datasets["exercise"].iterrows():
             exercise = str(row.get("exercise", "")).replace("_", " ")
@@ -219,7 +123,7 @@ def create_text_chunks(datasets: dict) -> list[str]:
             )
             chunks.append(chunk)
 
-    # ── Symptoms ───────────────────────────────────────────────────────────
+    # symptoms
     if "symptoms" in datasets:
         for _, row in datasets["symptoms"].iterrows():
             symptom = str(row.get("symptom", "")).replace("_", " ")
@@ -233,7 +137,7 @@ def create_text_chunks(datasets: dict) -> list[str]:
             )
             chunks.append(chunk)
 
-    # ── Weekly Guidance ────────────────────────────────────────────────────
+    # weekly guidance
     if "weekly" in datasets:
         for _, row in datasets["weekly"].iterrows():
             week = str(row.get("week", ""))
@@ -254,38 +158,19 @@ def create_text_chunks(datasets: dict) -> list[str]:
     return chunks
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5. VECTOR DATABASE (FAISS) CREATION & LOADING
-# ─────────────────────────────────────────────────────────────────────────────
-
 def build_vector_database(chunks: list[str], embedding_model: SentenceTransformer):
-    """
-    Generate embeddings for all text chunks and build a FAISS index.
-
-    Uses L2 (Euclidean) distance for similarity search. Normalising vectors
-    before indexing converts L2 distance to cosine similarity.
-
-    Args:
-        chunks: List of text strings to embed
-        embedding_model: Pre-loaded SentenceTransformer model
-
-    Returns:
-        faiss.Index: The built FAISS index
-        np.ndarray: The embedding matrix (shape: n_chunks × embedding_dim)
-    """
     print("  Generating embeddings (this may take a moment)...")
     embeddings = embedding_model.encode(
         chunks,
         show_progress_bar=True,
         batch_size=32,
-        normalize_embeddings=True,   # Normalise for cosine similarity via L2
+        normalize_embeddings=True,
     )
     embeddings = np.array(embeddings, dtype=np.float32)
 
     dim = embeddings.shape[1]
     print(f"  ✓ Embeddings shape: {embeddings.shape} (dim={dim})")
 
-    # Build flat L2 index — exact search, ideal for datasets < 100k docs
     index = faiss.IndexFlatL2(dim)
     index.add(embeddings)
     print(f"  ✓ FAISS index built with {index.ntotal} vectors")
@@ -294,7 +179,6 @@ def build_vector_database(chunks: list[str], embedding_model: SentenceTransforme
 
 
 def save_vector_database(index: faiss.Index, chunks: list[str]):
-    """Persist FAISS index and chunk text to disk for faster subsequent loads."""
     os.makedirs(DATA_DIR, exist_ok=True)
     faiss.write_index(index, FAISS_INDEX_PATH)
     with open(CHUNKS_PATH, "w", encoding="utf-8") as f:
@@ -303,10 +187,6 @@ def save_vector_database(index: faiss.Index, chunks: list[str]):
 
 
 def load_vector_database():
-    """
-    Load FAISS index and chunks from disk if they exist.
-    Returns (index, chunks) or (None, None) if not found.
-    """
     if os.path.exists(FAISS_INDEX_PATH) and os.path.exists(CHUNKS_PATH):
         index = faiss.read_index(FAISS_INDEX_PATH)
         with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
@@ -316,10 +196,6 @@ def load_vector_database():
     return None, None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 6. RETRIEVAL FUNCTION
-# ─────────────────────────────────────────────────────────────────────────────
-
 def retrieve_relevant_documents(
     query: str,
     index: faiss.Index,
@@ -327,25 +203,6 @@ def retrieve_relevant_documents(
     embedding_model: SentenceTransformer,
     top_k: int = TOP_K_RESULTS,
 ) -> list[str]:
-    """
-    Convert user query to embedding and retrieve top-K most similar chunks.
-
-    RETRIEVAL LOGIC:
-    1. Embed the query using the same model used to build the index
-    2. Normalise the query vector (consistent with normalised index)
-    3. FAISS L2 search returns top-K nearest neighbours
-    4. Return the corresponding text chunks
-
-    Args:
-        query: User's natural language question
-        index: Built FAISS index
-        chunks: List of all text chunks (parallel to index)
-        embedding_model: SentenceTransformer model
-        top_k: Number of results to retrieve
-
-    Returns:
-        List of most relevant text chunks
-    """
     query_embedding = embedding_model.encode(
         [query],
         normalize_embeddings=True,
@@ -356,32 +213,20 @@ def retrieve_relevant_documents(
 
     retrieved = []
     for i, idx in enumerate(indices[0]):
-        if idx != -1:  # -1 means no result found
+        if idx != -1:  # -1 means no result
             retrieved.append(chunks[idx])
 
     return retrieved
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 7. DANGER DETECTION
-# ─────────────────────────────────────────────────────────────────────────────
-
 def detect_danger_symptoms(question: str) -> tuple[bool, list[str]]:
-    """
-    Scan the user's question for dangerous pregnancy symptom keywords.
-
-    Returns:
-        is_dangerous (bool): True if any danger keywords detected
-        matched_keywords (list[str]): Which danger keywords were found
-    """
     question_lower = question.lower()
     matched = [kw for kw in DANGER_KEYWORDS if kw in question_lower]
     return bool(matched), matched
 
 
 def get_danger_alert(matched_keywords: list[str]) -> str:
-    """Generate an emergency alert message based on detected danger keywords."""
-    keywords_str = ", ".join(matched_keywords[:3])  # Show up to 3 keywords
+    keywords_str = ", ".join(matched_keywords[:3])
     return (
         f"⚠️  IMPORTANT SAFETY ALERT: Your question mentions symptoms that may "
         f"require immediate medical attention ({keywords_str}). "
@@ -394,10 +239,6 @@ def get_danger_alert(matched_keywords: list[str]) -> str:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 8. PROMPT BUILDER
-# ─────────────────────────────────────────────────────────────────────────────
-
 def build_prompt(
     question: str,
     user_profile: dict,
@@ -405,27 +246,6 @@ def build_prompt(
     is_dangerous: bool,
     matched_keywords: list[str],
 ) -> str:
-    """
-    Construct the full structured prompt for Gemini.
-
-    PROMPTING STRATEGY:
-    - System persona establishes the assistant's role, constraints, and tone
-    - User profile personalises the response to their specific pregnancy context
-    - Retrieved medical documents ground the answer in factual knowledge
-    - Danger flag adds urgency guidance when emergency symptoms are detected
-    - Output format instructions ensure consistent, structured responses
-
-    Args:
-        question: The user's question
-        user_profile: Dict with pregnancy_week, trimester, allergies, illnesses
-        retrieved_docs: Top-K relevant medical knowledge chunks
-        is_dangerous: Whether danger keywords were detected
-        matched_keywords: Which danger keywords were found
-
-    Returns:
-        Formatted prompt string ready for Gemini
-    """
-    # ── User Profile Section ───────────────────────────────────────────────
     week = user_profile.get("pregnancy_week", "unknown")
     trimester = user_profile.get("trimester", "unknown")
     trimester_names = {1: "First", 2: "Second", 3: "Third"}
@@ -437,7 +257,6 @@ def build_prompt(
     illnesses = user_profile.get("illnesses", [])
     illnesses_str = ", ".join(illnesses) if illnesses else "None reported"
 
-    # ── Retrieved Knowledge Section ────────────────────────────────────────
     if retrieved_docs:
         knowledge_section = "\n".join(
             f"  [{i+1}] {doc}" for i, doc in enumerate(retrieved_docs)
@@ -445,7 +264,6 @@ def build_prompt(
     else:
         knowledge_section = "  No specific knowledge retrieved for this query."
 
-    # ── Danger Context ─────────────────────────────────────────────────────
     danger_context = ""
     if is_dangerous:
         kw_str = ", ".join(matched_keywords)
@@ -456,7 +274,6 @@ def build_prompt(
             f"and strongly recommend they contact their healthcare provider immediately.\n"
         )
 
-    # ── Full Prompt ────────────────────────────────────────────────────────
     prompt = f"""You are a Pregnancy Health Personal Assistant — a knowledgeable, \
 calm, and compassionate guide for pregnant women.
 
@@ -508,32 +325,15 @@ or healthcare provider for personalised medical care.*"""
     return prompt
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 9. GEMINI API CALL
-# ─────────────────────────────────────────────────────────────────────────────
-
 def call_gemini(prompt: str) -> str:
-    """
-    Send the structured prompt to Gemini and return the text response.
-
-    Uses Gemini's safety settings to allow medical health content while
-    maintaining appropriate safety filters.
-
-    Args:
-        prompt: The full structured prompt string
-
-    Returns:
-        Gemini's generated text response
-    """
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
 
-        # Configure generation for medical guidance: balanced, clear, not too long
         generation_config = genai.types.GenerationConfig(
-            temperature=0.3,        # Lower temperature = more factual, less creative
+            temperature=0.3,
             top_p=0.8,
             top_k=40,
-            max_output_tokens=1024, # Enough for structured medical guidance
+            max_output_tokens=1024,
         )
 
         response = model.generate_content(
@@ -552,10 +352,6 @@ def call_gemini(prompt: str) -> str:
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 10. MAIN RAG CHAT FUNCTION
-# ─────────────────────────────────────────────────────────────────────────────
-
 def ask_pregnancy_assistant(
     question: str,
     user_profile: dict,
@@ -563,80 +359,46 @@ def ask_pregnancy_assistant(
     chunks: list[str],
     embedding_model: SentenceTransformer,
 ) -> str:
-    """
-    Complete RAG pipeline: takes a user question and returns structured guidance.
-
-    PIPELINE:
-    1. Danger detection — check for emergency symptoms first
-    2. Retrieval — find top-K relevant medical knowledge chunks
-    3. Prompt building — combine context + profile + question
-    4. Generation — call Gemini for the final answer
-
-    Args:
-        question: The user's pregnancy health question
-        user_profile: Dict with pregnancy context (week, trimester, allergies, etc.)
-        index: FAISS vector index
-        chunks: Knowledge base text chunks
-        embedding_model: SentenceTransformer for query embedding
-
-    Returns:
-        Structured text response with Answer / Safety Advice / Recommendation
-    """
     print(f"\n{'='*60}")
     print(f"QUESTION: {question}")
     print(f"{'='*60}")
 
-    # Step 1: Danger detection
     is_dangerous, matched_keywords = detect_danger_symptoms(question)
     if is_dangerous:
         print(f"  ⚠️  DANGER KEYWORDS DETECTED: {matched_keywords}")
-        # Prepend emergency alert to response
         danger_alert = get_danger_alert(matched_keywords)
     else:
         danger_alert = ""
 
-    # Step 2: Retrieve relevant documents
     print(f"  → Retrieving top-{TOP_K_RESULTS} relevant documents...")
     retrieved_docs = retrieve_relevant_documents(
         question, index, chunks, embedding_model, TOP_K_RESULTS
     )
     print(f"  ✓ Retrieved {len(retrieved_docs)} documents")
 
-    # Step 3: Build prompt
     prompt = build_prompt(
         question, user_profile, retrieved_docs, is_dangerous, matched_keywords
     )
 
-    # Step 4: Call Gemini
     print(f"  → Calling Gemini ({GEMINI_MODEL})...")
     response = call_gemini(prompt)
     print(f"  ✓ Response generated")
 
-    # Prepend danger alert if applicable
     full_response = danger_alert + response
     return full_response
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 11. INTERACTIVE CHAT SESSION
-# ─────────────────────────────────────────────────────────────────────────────
 
 def run_interactive_chat(
     index: faiss.Index,
     chunks: list[str],
     embedding_model: SentenceTransformer,
 ):
-    """
-    Run an interactive command-line chat session with the pregnancy assistant.
-    Collects user profile at startup and loops until user types 'quit'.
-    """
     print("\n" + "="*60)
     print("  🤰 PREGNANCY HEALTH ASSISTANT")
     print("  Powered by Gemini + RAG")
     print("="*60)
     print("  Type 'quit' to exit | Type 'profile' to update your profile\n")
 
-    # ── Collect User Profile ───────────────────────────────────────────────
     print("Let's set up your profile first.\n")
 
     try:
@@ -680,7 +442,6 @@ def run_interactive_chat(
     print("    • Can I eat tuna?")
     print("─"*60 + "\n")
 
-    # ── Chat Loop ──────────────────────────────────────────────────────────
     while True:
         try:
             user_input = input("\n  You: ").strip()
@@ -696,7 +457,6 @@ def run_interactive_chat(
                 print(f"\n  Current profile: {json.dumps(user_profile, indent=4)}")
                 continue
 
-            # Get response from RAG pipeline
             response = ask_pregnancy_assistant(
                 question=user_input,
                 user_profile=user_profile,
@@ -714,40 +474,20 @@ def run_interactive_chat(
             break
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 12. PROGRAMMATIC API (for integration into mobile/web apps)
-# ─────────────────────────────────────────────────────────────────────────────
-
 class PregnancyRAGAssistant:
-    """
-    Clean Python class API for integration into mobile/web application backends.
-
-    Usage:
-        assistant = PregnancyRAGAssistant()
-        response = assistant.ask(
-            question="Is tuna safe to eat?",
-            user_profile={"pregnancy_week": 18, "trimester": 2, "allergies": [], "illnesses": []}
-        )
-    """
 
     def __init__(self):
-        """Initialise the RAG system: load models, datasets, build FAISS index."""
         self._initialised = False
         self.index = None
         self.chunks = None
         self.embedding_model = None
 
     def initialise(self):
-        """
-        Load all components. Call this once before using ask().
-        Separated from __init__ to allow lazy loading in web frameworks.
-        """
         if self._initialised:
             return
 
         print("\n[PregnancyRAGAssistant] Initialising...")
 
-        # Configure Gemini
         if GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
             raise ValueError(
                 "Please set your Gemini API key in GEMINI_API_KEY variable "
@@ -755,15 +495,12 @@ class PregnancyRAGAssistant:
             )
         genai.configure(api_key=GEMINI_API_KEY)
 
-        # Load embedding model
         print("  Loading embedding model...")
         self.embedding_model = SentenceTransformer(EMBEDDING_MODEL)
 
-        # Try to load cached FAISS index
         self.index, self.chunks = load_vector_database()
 
         if self.index is None:
-            # Build from scratch
             print("  Building knowledge base from CSV files...")
             datasets = load_datasets()
             self.chunks = create_text_chunks(datasets)
@@ -774,21 +511,6 @@ class PregnancyRAGAssistant:
         print("[PregnancyRAGAssistant] Ready ✓\n")
 
     def ask(self, question: str, user_profile: dict) -> str:
-        """
-        Ask the pregnancy assistant a question.
-
-        Args:
-            question: Natural language health question
-            user_profile: {
-                "pregnancy_week": int,
-                "trimester": int (1, 2, or 3),
-                "allergies": list[str],
-                "illnesses": list[str]
-            }
-
-        Returns:
-            Structured text response with Answer / Safety Advice / Recommendation
-        """
         if not self._initialised:
             self.initialise()
 
@@ -801,7 +523,6 @@ class PregnancyRAGAssistant:
         )
 
     def get_weekly_guidance(self, week: int) -> str:
-        """Convenience method: get guidance for a specific pregnancy week."""
         question = f"What should I know about pregnancy week {week}? What is my baby doing and what should I eat?"
         profile = {
             "pregnancy_week": week,
@@ -812,7 +533,6 @@ class PregnancyRAGAssistant:
         return self.ask(question, profile)
 
     def check_food_safety(self, food: str, week: int) -> str:
-        """Convenience method: check if a specific food is safe."""
         question = f"Is {food} safe to eat during pregnancy? I am {week} weeks pregnant."
         profile = {
             "pregnancy_week": week,
@@ -823,7 +543,6 @@ class PregnancyRAGAssistant:
         return self.ask(question, profile)
 
     def check_symptom(self, symptom: str, week: int) -> str:
-        """Convenience method: evaluate a pregnancy symptom."""
         question = f"I am {week} weeks pregnant and I am experiencing {symptom}. Is this dangerous?"
         profile = {
             "pregnancy_week": week,
@@ -834,26 +553,11 @@ class PregnancyRAGAssistant:
         return self.ask(question, profile)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 13. MAIN ENTRY POINT
-# ─────────────────────────────────────────────────────────────────────────────
-
 def main():
-    """
-    Main entry point for running the pregnancy assistant from the command line.
-
-    Steps:
-    1. Validate Gemini API key
-    2. Configure Gemini
-    3. Load embedding model
-    4. Load or build FAISS vector database
-    5. Launch interactive chat
-    """
     print("\n" + "="*60)
     print("  PREGNANCY HEALTH RAG ASSISTANT — STARTUP")
     print("="*60)
 
-    # ── Validate API Key ───────────────────────────────────────────────────
     if GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
         print("\n  ✗ ERROR: Gemini API key not set!")
         print("  Please set your API key in one of these ways:")
@@ -862,18 +566,15 @@ def main():
         print("\n  Get your free API key at: https://aistudio.google.com/app/apikey\n")
         sys.exit(1)
 
-    # ── Configure Gemini ───────────────────────────────────────────────────
     print("\n[1/4] Configuring Gemini API...")
     genai.configure(api_key=GEMINI_API_KEY)
     print(f"  ✓ Gemini configured (model: {GEMINI_MODEL})")
 
-    # ── Load Embedding Model ───────────────────────────────────────────────
     print(f"\n[2/4] Loading embedding model ({EMBEDDING_MODEL})...")
     print("  (First run will download ~90MB model — cached after that)")
     embedding_model = SentenceTransformer(EMBEDDING_MODEL)
     print(f"  ✓ Embedding model loaded")
 
-    # ── Build/Load Vector Database ─────────────────────────────────────────
     print("\n[3/4] Loading knowledge base...")
     index, chunks = load_vector_database()
 
@@ -893,20 +594,11 @@ def main():
     else:
         print(f"  ✓ Using cached FAISS index ({len(chunks)} knowledge chunks)")
 
-    # ── Launch Chat ────────────────────────────────────────────────────────
     print("\n[4/4] Starting interactive session...")
     run_interactive_chat(index, chunks, embedding_model)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DEMO MODE (runs without Gemini API key for testing)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def demo_retrieval_only():
-    """
-    Demo mode: test the retrieval pipeline without needing a Gemini API key.
-    Useful for verifying the FAISS index and embeddings work correctly.
-    """
     print("\n" + "="*60)
     print("  DEMO MODE — Retrieval Pipeline Test (no API key needed)")
     print("="*60)
@@ -914,7 +606,6 @@ def demo_retrieval_only():
     print(f"\nLoading embedding model ({EMBEDDING_MODEL})...")
     embedding_model = SentenceTransformer(EMBEDDING_MODEL)
 
-    # Load or build index
     index, chunks = load_vector_database()
     if index is None:
         datasets = load_datasets()
@@ -922,7 +613,6 @@ def demo_retrieval_only():
         index, _ = build_vector_database(chunks, embedding_model)
         save_vector_database(index, chunks)
 
-    # Test queries
     test_questions = [
         "What food should I eat this week?",
         "Is walking safe during pregnancy?",
@@ -948,10 +638,7 @@ def demo_retrieval_only():
     print("\n\n✓ Demo complete. Set GEMINI_API_KEY and run main() for full chat.\n")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
-    # Check for demo flag
     if "--demo" in sys.argv:
         demo_retrieval_only()
     else:
